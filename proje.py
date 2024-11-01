@@ -32,55 +32,43 @@ base_url = 'https://www.imf.org/external/datamapper/api/v1/PCPIPCH/'
 
 all_data = []
 
-for country in country_codes:
-    url = f'{base_url}{country}'
-    response = requests.get(url)
+response = requests.get(base_url)
 
-    if response.status_code == 200:
-        data = response.json()
-        if 'values' in data and 'PCPIPCH' in data['values'] and country in data['values']['PCPIPCH']:
-            cpi_data = data['values']['PCPIPCH'][country]
-            df = pd.DataFrame(list(cpi_data.items()), columns=['Yıl', 'TÜFE'])
-            df['Yıl'] = pd.to_numeric(df['Yıl'])
-            df['Ülke'] = country
-            all_data.append(df)
-        else:
-            print(f"{country} için TÜFE verisi bulunamadı.")
-    else:
-        print(f"{country} için veri alınamadı: {response.status_code}")
+if response.status_code == 200:
+    data = response.json()
+    for country in country_codes:
+            if 'values' in data and 'PCPIPCH' in data['values'] and country in data['values']['PCPIPCH']:
+                cpi_data = data['values']['PCPIPCH'][country]
+                df = pd.DataFrame(list(cpi_data.items()), columns=['Yıl', 'TÜFE'])
+                df['Yıl'] = pd.to_numeric(df['Yıl'])
+                df['Ülke'] = country
+                all_data.append(df)
+            else:
+                print(f"{country} için TÜFE verisi bulunamadı.")
+else:
+    print("Veri alınamadı: {response.status_code}")
 
-for country in country_codes:
-    url = f'{base_url}{country}'
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        if 'values' in data and 'PCPIPCH' in data['values'] and country in data['values']['PCPIPCH']:
-            cpi_data = data['values']['PCPIPCH'][country]
-            df = pd.DataFrame(list(cpi_data.items()), columns=['Yıl', 'TÜFE'])
-            df['Yıl'] = pd.to_numeric(df['Yıl'])
-            df['Ülke'] = country
-            all_data.append(df)
-        else:
-            print(f"{country} için TÜFE verisi bulunamadı.")
-    else:
-        print(f"{country} için veri alınamadı: {response.status_code}")
 
 # Combine all data into a single DataFrame
 if all_data:
     combined_df = pd.concat(all_data, ignore_index=True)
 
-    # Plot for Turkey
+    # Plot for Turkey with standard deviation line
     plt.figure(figsize=(10, 6))
     turkey_data = combined_df[combined_df['Ülke'] == 'TUR']
     sns.lineplot(data=turkey_data, x='Yıl', y='TÜFE', color='blue', label='Türkiye TÜFE')
     plt.title('Türkiye Tüketici Fiyat Endeksi ve tahminleri')
     plt.xlabel('Yıl')
     plt.ylabel('TÜFE')
-    mean_turkey_cpi = turkey_data['TÜFE'].mean()
-    plt.axhline(mean_turkey_cpi, color='red', linestyle='--', label='Ortalama TÜFE')
+
+    # Calculate standard deviation of Turkey's CPI and plot it
+    std_turkey_cpi = turkey_data['TÜFE'].std()
+    plt.axhline(std_turkey_cpi, color='green', linestyle='--', label='Standart Sapma TÜFE')
+
     plt.legend()
     plt.xticks(rotation=45)
     plt.show()
+
 
     # Plot for Other Countries (average CPI)
     plt.figure(figsize=(10, 6))
@@ -93,30 +81,40 @@ if all_data:
     plt.xticks(rotation=45)
     plt.show()
 
-    # Plot for Median CPI of all countries
+    # Plot for Median CPI of all countries, with Turkey in a different color
     plt.figure(figsize=(10, 6))
     median_cpi = combined_df.groupby('Ülke')['TÜFE'].median().reset_index()
-    sns.barplot(data=median_cpi, x='Ülke', y='TÜFE', palette='viridis')
-    plt.title('Tüm Ülkelerin Medyan Tüketici Fiyat Endeksi ve tahminleri')
+
+    # Define colors: set 'red' for Turkey and 'blue' for other countries
+    colors = ['red' if country == 'TUR' else 'blue' for country in median_cpi['Ülke']]
+
+    # Plotting the bar plot with customized colors
+    sns.barplot(data=median_cpi, x='Ülke', y='TÜFE', palette=colors)
+    plt.title('Tüm Ülkelerin Medyan Tüketici Fiyat Endeksi')
     plt.xlabel('Ülke')
     plt.ylabel('Medyan TÜFE')
-    plt.xticks([], rotation=0)  # Hide x-tick labels
+    plt.xticks([], rotation=0)  # Hide x-tick labels to keep the plot cleaner
     plt.show()
+
+
+    # Calculate the mean for Turkey's CPI specifically for the pie chart
+    mean_turkey_cpi = turkey_data['TÜFE'].mean()
+    average_world_cpi = other_countries['TÜFE'].mean()
 
     # Average CPI Pie Chart
     plt.figure(figsize=(6, 6))
-    average_world_cpi = other_countries['TÜFE'].mean()
     pie_data = pd.Series([mean_turkey_cpi, average_world_cpi], index=['Türkiye', 'Diğer Ülkeler'])
     plt.pie(pie_data, labels=pie_data.index, autopct='%1.1f%%', startangle=140)
-    plt.title('Ortalama Tüketici Fiyat Endeksi: Türkiye ve Diğer Ülkeler ve tahminleri')
+    plt.title('Ortalama Tüketici Fiyat Endeksi')
     plt.show()
+
 
     # Mode CPI for each country in a bar plot with Turkey highlighted
     plt.figure(figsize=(12, 6))
     mode_cpi = combined_df.groupby('Ülke')['TÜFE'].apply(lambda x: mode(x) if len(x) > 0 else None).reset_index()
     colors = ['red' if x == 'TUR' else 'blue' for x in mode_cpi['Ülke']]
     sns.barplot(data=mode_cpi, x='Ülke', y='TÜFE', palette=colors)
-    plt.title('Her Ülke İçin Tüketici Fiyat Endeksinin Modu ve tahminleri')
+    plt.title('Her Ülke İçin Tüketici Fiyat Endeksinin (Mod)')
     plt.xlabel('Ülke')
     plt.ylabel('Mod TÜFE')
     plt.xticks([], rotation=0)  # Hide x-tick labels
