@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from statistics import mode
+from scipy.stats import ttest_ind, chi2_contingency, f_oneway
 
 # List of country codes (196)
 country_codes = [
@@ -48,7 +49,6 @@ if response.status_code == 200:
 else:
     print("Veri alınamadı: {response.status_code}")
 
-
 # Combine all data into a single DataFrame
 if all_data:
     combined_df = pd.concat(all_data, ignore_index=True)
@@ -68,7 +68,6 @@ if all_data:
     plt.legend()
     plt.xticks(rotation=45)
     plt.show()
-
 
     # Plot for Other Countries (average CPI)
     plt.figure(figsize=(10, 6))
@@ -96,7 +95,6 @@ if all_data:
     plt.xticks([], rotation=0)  # Hide x-tick labels to keep the plot cleaner
     plt.show()
 
-
     # Calculate the mean for Turkey's CPI specifically for the pie chart
     mean_turkey_cpi = turkey_data['TÜFE'].mean()
     average_world_cpi = other_countries['TÜFE'].mean()
@@ -108,7 +106,6 @@ if all_data:
     plt.title('Ortalama Tüketici Fiyat Endeksi')
     plt.show()
 
-
     # Mode CPI for each country in a bar plot with Turkey highlighted
     plt.figure(figsize=(12, 6))
     mode_cpi = combined_df.groupby('Ülke')['TÜFE'].apply(lambda x: mode(x) if len(x) > 0 else None).reset_index()
@@ -119,6 +116,32 @@ if all_data:
     plt.ylabel('Mod TÜFE')
     plt.xticks([], rotation=0)  # Hide x-tick labels
     plt.show()
+
+    # T-test function
+    def perform_t_test(data):
+        turkey_cpi = data[data['Ülke'] == 'TUR']['TÜFE']
+        other_countries_cpi = data[data['Ülke'] != 'TUR']['TÜFE']
+        t_stat, p_value = ttest_ind(turkey_cpi, other_countries_cpi, equal_var=False)
+        print(f"T-test: t-statistic = {t_stat:.4f}, p-value = {p_value:.4f}")
+        if p_value < 0.05:
+            print("Türkiye ile diğer ülkeler arasında anlamlı fark var.")
+        else:
+            print("Türkiye ile diğer ülkeler arasında anlamlı fark yok.")
+
+    # Chi-squared test function
+    def perform_chi_squared_test(data):
+        contingency_table = pd.crosstab(data['Yıl'], data['Ülke'] == 'TUR')
+        chi2, p_value, dof, expected = chi2_contingency(contingency_table)
+        print(f"Chi-squared test: chi2 = {chi2:.4f}, p-value = {p_value:.4f}")
+        if p_value < 0.05:
+            print("Yıllar ile ülke gruplandırması arasında anlamlı ilişki var.")
+        else:
+            print("Yıllar ile ülke gruplandırması arasında anlamlı ilişki yok.No significant association between years and country grouping.")
+
+        
+    # Call the new functions to display test results
+    perform_t_test(combined_df)
+    perform_chi_squared_test(combined_df)
 
 else:
     print("Görselleştirme için veri bulunmamaktadır.")
